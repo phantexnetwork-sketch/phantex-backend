@@ -13,7 +13,8 @@
     "@supabase/supabase-js": "^2.38.0",
     "speakeasy": "^2.0.0",
     "pdfkit": "^0.14.0",
-    "crypto": "^1.0.1"
+    "crypto": "^1.0.1",
+    "@fingerprintjs/fingerprintjs": "^3.4.0"
   },
   "engines": {
     "node": "18.x"

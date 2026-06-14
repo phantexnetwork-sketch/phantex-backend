@@ -656,3 +656,274 @@ app.get('/api/admin/dashboard', async (req, res) => {
     const { count: activeUsers } = await supabase
       .from('users')
       .select('*', { count
+      .eq('status', 'active');
+
+    const { count: newUsers24h } = await supabase
+      .from('users')
+      .select('*', { count: 'exact', head: true })
+      .gte('created_at', yesterday.toISOString());
+
+    const { count: onlineUsers } = await supabase
+      .from('users')
+      .select('*', { count: 'exact', head: true })
+      .gte('last_seen', new Date(now - 5 * 60 * 1000).toISOString());
+
+    const { count: totalConversions } = await supabase
+      .from('conversions')
+      .select('*', { count: 'exact', head: true });
+
+    const { data: pendingWithdrawals } = await supabase
+      .from('withdrawals')
+      .select('*')
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false });
+
+    const { data: suspicious } = await supabase
+      .from('suspicious')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    const settings = await getSettings();
+
+    res.json({
+      success: true,
+      stats: {
+        total_users: totalUsers,
+        active_users: activeUsers,
+        new_users_24h: newUsers24h,
+        online_users: onlineUsers,
+        total_conversions: totalConversions,
+        storage_percent: Math.round((totalUsers / CONFIG.MAX_USERS) * 100)
+      },
+      pending_withdrawals: pendingWithdrawals || [],
+      suspicious: suspicious || [],
+      settings
+    });
+
+  } catch (err) {
+    res.status(500).json({ error: 'Something went wrong.' });
+  }
+});// GET ALL USERS FOR EXPORT
+app.get('/api/admin/users/export', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    const { data: session } = await supabase
+      .from('admin_sessions')
+      .select('*')
+      .eq('token', token)
+      .single();
+
+    if (!session) return res.status(401).json({ error: 'Unauthorized.' });
+
+    const { data: users } = await supabase
+      .from('users')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    res.json({ success: true, users: users || [] });
+  } catch (err) {
+    res.status(500).json({ error: 'Something went wrong.' });
+  }
+});
+
+// PARTNER LOGIN
+app.post('/api/partner/login', async (req, res) => {
+  try {
+    const { username, password, totp } = req.body;
+
+    const { data: settings } = await supabase
+      .from('settings')
+      .select('partner_username, partner_password, partner_totp_secret')
+      .single();
+
+    if (username !== settings.partner_username || 
+        password !== settings.partner_password) {
+      return res.status(401).json({ error: 'Invalid credentials.' });
+    }
+
+    if (settings.partner_totp_secret) {
+      const verified = speakeasy.totp.verify({
+        secret: settings.partner_totp_secret,
+        encoding: 'base32',
+        token: totp,
+        window: 2
+      });
+      if (!verified) return res.status(401).json({ error: 'Invalid authenticator code.' });
+    }
+
+    const token = generateToken();
+    await supabase.from('partner_sessions').insert({
+      token,
+      created_at: new Date(),
+      expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000)
+    });
+
+    res.json({ success: true, token });
+  } catch (err) {
+    res.status(500).json({ error: 'Something went wrong.' });
+  }
+});
+
+// PARTNER DASHBOARD — READ ONLY
+app.get('/api/partner/dashboard', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    const { data: session } = await supabase
+      .from('partner_sessions')
+      .select('*')
+      .eq('token', token)
+      .single();
+
+    if (!session) return res.status(401).json({ error: 'Unauthorized.' });
+
+    const now = new Date();
+    const yesterday = new Date(now - 24 * 60 * 60 * 1000);
+
+    const { count: totalUsers } = await supabase
+      .from('users')
+      .select('*', { count: 'exact', head: true });
+
+    const { count: activeUsers } = await supabase
+      .from('users')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'active');
+
+    const { count: newUsers24h } = await supabase
+      .from('users')
+      .select('*', { count: 'exact', head: true })
+      .gte('created_at', yesterday.toISOString());
+
+    const { count: onlineUsers } = await supabase
+      .from('users')
+      .select('*', { count: 'exact', head: true })
+      .gte('last_seen', new Date(now - 5 * 60 * 1000).toISOString());
+
+    const { count: totalConversions } = await supabase
+      .from('conversions')
+      .select('*', { count: 'exact', head: true });
+
+    const { count: conversions24h } = await supabase
+      .from('conversions')
+      .select('*', { count: 'exact', head: true })
+      .gte('created_at', yesterday.toISOString());
+
+    res.json({
+      success: true,
+      stats: {
+        total_users: totalUsers,
+        active_users: activeUsers,
+        new_users_24h: newUsers24h,
+        online_users: onlineUsers,
+        total_conversions: totalConversions,
+        conversions_24h: conversions24h
+      }
+    });
+
+  } catch (err) {
+    res.status(500).json({ error: 'Something went wrong.' });
+  }
+});
+
+// FRAUD DETECTION — runs on every signup/login
+app.post('/api/fraud-check', async (req, res) => {
+  try {
+    const { fingerprint, ip, email } = req.body;
+
+    let suspicious = false;
+    let reasons = [];
+
+    // Check same fingerprint
+    if (fingerprint) {
+      const { data: fpAccounts } = await supabase
+        .from('users')
+        .select('id, email')
+        .eq('fingerprint', fingerprint);
+
+      if (fpAccounts && fpAccounts.length >= 2) {
+        suspicious = true;
+        reasons.push('Multiple accounts same device');
+      }
+    }
+
+    // Check same IP — more than 3 accounts
+    if (ip) {
+      const { data: ipAccounts } = await supabase
+        .from('users')
+        .select('id, email')
+        .eq('ip', ip);
+
+      if (ipAccounts && ipAccounts.length >= 3) {
+        suspicious = true;
+        reasons.push('Multiple accounts same IP');
+      }
+    }
+
+    // Check referral abuse — too many referrals too fast
+    const { data: recentReferrals } = await supabase
+      .from('users')
+      .select('id')
+      .eq('referred_by', email)
+      .gte('created_at', new Date(Date.now() - 60 * 60 * 1000).toISOString());
+
+    if (recentReferrals && recentReferrals.length >= 5) {
+      suspicious = true;
+      reasons.push('Referral abuse — 5+ referrals in 1 hour');
+    }
+
+    if (suspicious) {
+      await supabase.from('suspicious').insert({
+        email,
+        reason: reasons.join(', '),
+        fingerprint,
+        ip,
+        created_at: new Date()
+      });
+
+      // Shadow ban
+      await supabase
+        .from('users')
+        .update({ status: 'shadow_banned' })
+        .eq('email', email);
+    }
+
+    res.json({ success: true, suspicious });
+  } catch (err) {
+    res.status(500).json({ error: 'Something went wrong.' });
+  }
+});
+
+// LOGOUT
+app.post('/api/logout', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    
+    await supabase.from('sessions').delete().eq('token', token);
+    
+    // Set offline
+    const { data: session } = await supabase
+      .from('sessions')
+      .select('user_id')
+      .eq('token', token)
+      .single();
+
+    if (session) {
+      await supabase
+        .from('users')
+        .update({ online: false })
+        .eq('id', session.user_id);
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: true });
+  }
+});
+
+// HEALTH CHECK
+app.get('/health', (req, res) => {
+  res.json({ status: 'Phantex server is running', time: new Date() });
+});
+// START SERVER
+app.listen(CONFIG.PORT, () => {
+  console.log(`Phantex backend running on port ${CONFIG.PORT}`);
+});

@@ -17,14 +17,17 @@ const CONFIG = {
   SUPABASE_URL: 'https://ubcyuzzpyeukyjefdbaa.supabase.co',
   SUPABASE_SECRET: 'sb_secret_a5wM_CqO06gyjlgwUkqJbA_2WmhbfQ_',
   GMAIL_USER: 'aeb918001@smtp-brevo.com',
-  GMAIL_PASS: 'xsmtpsib-c0d425dce657e4d318b591dffa12c0ff64a940f19af52ce50711cb12be6988bb-oqTMfDyQ65PeCcO2', // ← paste your 16 letter app password here
+  GMAIL_PASS: 'xsmtpsib-c0d425dce657e4d318b591dffa12c0ff64a940f19af52ce50711cb12be6988bb-oqTMfDyQ65PeCcO2',
   SMARTLINK: 'https://wwmyokgik.one/cl/142f7946ad0c8b0f',
-  ADMIN_USERNAME: 'phantex.4060',
-  ADMIN_PASSWORD: 'phantex.904011',
-  CONVERSION_PAYOUT: 100, // ₦100 per conversion
-  REFERRAL_PAYOUT: 150,   // ₦150 per referral
-  MIN_WITHDRAWAL: 1000,   // minimum ₦1000 to withdraw
-  MAX_USERS: 10000,       // storage limit
+  ADMIN_USERNAME: 'phantexnetwork@gmail.com',
+  ADMIN_PASSWORD: 'DASalu11',
+  CONVERSION_PAYOUT: 100,
+  REFERRAL_PAYOUT: 150,
+  MIN_WITHDRAWAL: 1000,
+  MAX_USERS: 10000,
+  REGISTRATION_FEE: 3000,
+  TELEGRAM_BOT: '8879053145:AAHVbaWBzEl0Un59JBNfLjATDYf2HOGj_Kg',
+  TELEGRAM_CHAT: '-5406641250',
   PORT: process.env.PORT || 3000,
   FRONTEND_URL: 'https://phantex.netlify.app'
 };
@@ -38,7 +41,9 @@ const supabase = createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_SECRET);
 // EMAIL TRANSPORTER
 // ============================================
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  host: 'smtp-relay.brevo.com',
+  port: 587,
+  secure: false,
   auth: {
     user: CONFIG.GMAIL_USER,
     pass: CONFIG.GMAIL_PASS

@@ -16,8 +16,8 @@ app.use(express.json());
 const CONFIG = {
   SUPABASE_URL: 'https://ubcyuzzpyeukyjefdbaa.supabase.co',
   SUPABASE_SECRET: 'sb_secret_a5wM_CqO06gyjlgwUkqJbA_2WmhbfQ_',
-  GMAIL_USER: 'phantexnetwork@gmail.com',
-  GMAIL_PASS: 'amyh rqqd rzcg tbzn', // ← paste your 16 letter app password here
+  GMAIL_USER: 'aeb918001@smtp-brevo.com',
+  GMAIL_PASS: 'xsmtpsib-c0d425dce657e4d318b591dffa12c0ff64a940f19af52ce50711cb12be6988bb-oqTMfDyQ65PeCcO2', // ← paste your 16 letter app password here
   SMARTLINK: 'https://wwmyokgik.one/cl/142f7946ad0c8b0f',
   ADMIN_USERNAME: 'phantex.4060',
   ADMIN_PASSWORD: 'phantex.904011',

@@ -4,7 +4,7 @@ const nodemailer = require('nodemailer');
 const { createClient } = require('@supabase/supabase-js');
 const crypto = require('crypto');
 const speakeasy = require('speakeasy');
-const FingerprintJS = require('@fingerprintjs/fingerprintjs');
+
 
 const app = express();
 app.use(cors());

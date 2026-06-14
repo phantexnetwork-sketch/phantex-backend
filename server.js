@@ -72,6 +72,19 @@ async function sendEmail(to, subject, html) {
     subject,
     html
   });
+}async function sendTelegram(message) {
+  try {
+    await fetch(`https://api.telegram.org/bot${CONFIG.TELEGRAM_BOT}/sendMessage`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        chat_id: CONFIG.TELEGRAM_CHAT,
+        text: message
+      })
+    });
+  } catch(e) {
+    console.log('Telegram error:', e);
+  }
 }
 
 // ============================================

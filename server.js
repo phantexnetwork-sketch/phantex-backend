@@ -655,7 +655,7 @@ app.get('/api/admin/dashboard', async (req, res) => {
 
     const { count: activeUsers } = await supabase
       .from('users')
-      .select('*', { count
+      .select('*', { count: 'exact', head: true })
       .eq('status', 'active');
 
     const { count: newUsers24h } = await supabase
